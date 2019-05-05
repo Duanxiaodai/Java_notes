@@ -51,7 +51,7 @@
 		1. 请求行
 			请求方式 请求url 请求协议/版本
 			GET /login.html	HTTP/1.1
-
+			GET /login.html?name=zhangsan HTTP/1.1
 			* 请求方式：
 				* HTTP协议有7中请求方式，常用的有2种
 					* GET：
