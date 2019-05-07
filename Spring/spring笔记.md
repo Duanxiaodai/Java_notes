@@ -221,3 +221,171 @@ spring共四天
 		</map>
 	</property>
 </bean>
+
+spring第二天：spring基于注解的IOC以及IoC的案例
+1、spring中ioc的常用注解
+2、案例使用xml方式和注解方式实现单表的CRUD操作
+	持久层技术选择：dbutils
+3、改造基于注解的ioc案例，使用纯注解的方式实现
+	spring的一些新注解使用
+4、spring和Junit整合
+/**
+ * 账户的业务层实现类
+ *
+ * 曾经XML的配置：
+ *  <bean id="accountService" class="com.itheima.service.impl.AccountServiceImpl"
+ *        scope=""  init-method="" destroy-method="">
+ *      <property name=""  value="" | ref=""></property>
+ *  </bean>
+ *
+ * 用于创建对象的
+ *      他们的作用就和在XML配置文件中编写一个<bean>标签实现的功能是一样的
+ *      Component:
+ *          作用：用于把当前类对象存入spring容器中
+ *          属性：
+ *              value：用于指定bean的id。当我们不写时，它的默认值是当前类名，且首字母改小写。
+ *      Controller：一般用在表现层
+ *      Service：一般用在业务层
+ *      Repository：一般用在持久层
+ *      以上三个注解他们的作用和属性与Component是一模一样。
+ *      他们三个是spring框架为我们提供明确的三层使用的注解，使我们的三层对象更加清晰
+ *
+ *
+ * 用于注入数据的
+ *      他们的作用就和在xml配置文件中的bean标签中写一个<property>标签的作用是一样的
+ *      Autowired:
+ *          作用：自动按照类型注入。只要容器中有唯一的一个bean对象类型和要注入的变量类型匹配，就可以注入成功
+ *                如果ioc容器中没有任何bean的类型和要注入的变量类型匹配，则报错。
+ *                如果Ioc容器中有多个类型匹配时： 匹配成员变量名称与id ？
+ *          出现位置：
+ *              可以是变量上，也可以是方法上
+ *          细节：
+ *              在使用注解注入时，set方法就不是必须的了。
+ *      Qualifier:
+ *          作用：在按照类中注入的基础之上再按照名称注入。它在给类成员注入时不能单独使用。但是在给方法参数注入时可以（稍后我们讲）
+ *          属性：
+ *              value：用于指定注入bean的id。
+ *      Resource
+ *          作用：直接按照bean的id注入。它可以独立使用
+ *          属性：
+ *              name：用于指定bean的id。
+ *      以上三个注入都只能注入其他bean类型的数据，而基本类型和String类型无法使用上述注解实现。
+ *      另外，集合类型的注入只能通过XML来实现。
+ *
+ *      Value
+ *          作用：用于注入基本类型和String类型的数据
+ *          属性：
+ *              value：用于指定数据的值。它可以使用spring中SpEL(也就是spring的el表达式）
+ *                      SpEL的写法：${表达式}
+ *
+ * 用于改变作用范围的
+ *      他们的作用就和在bean标签中使用scope属性实现的功能是一样的
+ *      Scope
+ *          作用：用于指定bean的作用范围
+ *          属性：
+ *              value：指定范围的取值。常用取值：singleton prototype
+ *
+ * 和生命周期相关 了解
+ *      他们的作用就和在bean标签中使用init-method和destroy-methode的作用是一样的
+ *      PreDestroy
+ *          作用：用于指定销毁方法
+ *      PostConstruct
+ *          作用：用于指定初始化方法
+ */
+ //注解与xml配置混合
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!-- 告知spring在创建容器时要扫描的包 -->
+    <context:component-scan base-package="com.itheima"></context:component-scan>
+    <!--配置QueryRunner-->
+    <bean id="runner" class="org.apache.commons.dbutils.QueryRunner" scope="prototype">
+        <!--注入数据源-->
+        <constructor-arg name="ds" ref="dataSource"></constructor-arg>
+    </bean>
+
+    <!-- 配置数据源 -->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <!--连接数据库的必备信息-->
+        <property name="driverClass" value="com.mysql.cj.jdbc.Driver"></property>
+        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/eesy?serverTimezone=UTC"></property>
+        <property name="user" value="root"></property>
+        <property name="password" value="duanyuefeng"></property>
+    </bean>
+</beans>
+
+
+	
+去掉xml配置文件,纯注解（并没有省事）可以在自己开发的包中用注解，jar外部包的依赖用xml文件来配置
+/**
+ * 该类是一个配置类，它的作用和bean.xml是一样的
+ * spring中的新注解
+ * Configuration
+ *     作用：指定当前类是一个配置类
+ *     细节：当配置类作为AnnotationConfigApplicationContext对象创建的参数时，该注解可以不写。
+ * ComponentScan
+ *      作用：用于通过注解指定spring在创建容器时要扫描的包
+ *      属性：
+ *          value：它和basePackages的作用是一样的，都是用于指定创建容器时要扫描的包。
+ *                 我们使用此注解就等同于在xml中配置了:
+ *                      <context:component-scan base-package="com.itheima"></context:component-scan>
+ *  Bean
+ *      作用：用于把当前方法的返回值作为bean对象存入spring的ioc容器中
+ *      属性:
+ *          name:用于指定bean的id。当不写时，默认值是当前方法的名称
+ *      细节：
+ *          当我们使用注解配置方法时，如果方法有参数，spring框架会去容器中查找有没有可用的bean对象。
+ *          查找的方式和Autowired注解的作用是一样的
+ *  Import
+ *      作用：用于导入其他的配置类
+ *      属性：
+ *          value：用于指定其他配置类的字节码。
+ *                  当我们使用Import的注解之后，有Import注解的类就父配置类，而导入的都是子配置类
+ *  PropertySource
+ *      作用：用于指定properties文件的位置
+ *      属性：
+ *          value：指定文件的名称和路径。
+ *                  关键字：classpath，表示类路径下
+ */
+//@Configuration
+@ComponentScan("com.itheima")
+@Import(JdbcConfig.class)
+@PropertySource("classpath:jdbcConfig.properties")
+public class SpringConfiguration {
+
+
+}
+
+
+Spring 整合 junit
+1、应用程序的入口
+	main方法
+2、junit单元测试中，没有main方法也能执行
+	junit集成了一个main方法
+	该方法就会判断当前测试类中哪些方法有 @Test注解
+	junit就让有Test注解的方法执行
+3、junit不会管我们是否采用spring框架
+	在执行测试方法时，junit根本不知道我们是不是使用了spring框架
+	所以也就不会为我们读取配置文件/配置类创建spring核心容器
+4、由以上三点可知
+	当测试方法执行时，没有Ioc容器，就算写了Autowired注解，也无法实现注入
+	
+/**
+ * 使用Junit单元测试：测试我们的配置
+ * Spring整合junit的配置
+ *      1、导入spring整合junit的jar(坐标)
+ *      2、使用Junit提供的一个注解把原有的main方法替换了，替换成spring提供的
+ *             @Runwith
+ *      3、告知spring的运行器，spring和ioc创建是基于xml还是注解的，并且说明位置
+ *          @ContextConfiguration
+ *                  locations：指定xml文件的位置，加上classpath关键字，表示在类路径下
+ *                  classes：指定注解类所在地位置
+ *
+ *   当我们使用spring 5.x版本的时候，要求junit的jar必须是4.12及以上
+ */
