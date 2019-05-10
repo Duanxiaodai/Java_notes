@@ -161,3 +161,27 @@ xml文件配置
 		
 "C:\Program Files\Java\jdk1.8.0_131\bin\java.exe" -Dmaven.multiModuleProjectDirectory=E:\IDEA\myMybatis\asd -DarchetypeCatalog=internal -Dmaven.home=E:\Tools\apache-maven-3.5.2-bin\apache-maven-3.5.2 -Dclassworlds.conf=E:\Tools\apache-maven-3.5.2-bin\apache-maven-3.5.2\bin\m2.conf -Didea.launcher.port=51189 "-Didea.launcher.bin.path=E:\IDEA\IntelliJ IDEA 2018.3.5\bin" -Dfile.encoding=UTF-8 -classpath "E:\Tools\apache-maven-3.5.2-bin\apache-maven-3.5.2\boot\plexus-classworlds-2.5.2.jar;E:\IDEA\IntelliJ IDEA 2018.3.5\lib\idea_rt.jar" com.intellij.rt.execution.application.AppMainV2 org.codehaus.classworlds.Launcher -Didea.version=2018.3.5 -Dexec.workingdir=E:\IDEA\myMybatis\asd "-Dexec.args=-classpath %classpath com.it.test.A" "-Dexec.executable=C:\Program Files\Java\jdk1.8.0_131\bin\java.exe" exec:exec
 [INFO] Scanning for projects...
+
+
+
+第二天
+1、回顾mybatis自定义和环境搭建+完善自定义Mybatis的注解开发
+2、Mybatis基于代理Dao的CRUD操作					重点内容
+3、CRUD中可能遇到的问题：参数的传递以及返回值的封装
+4、介绍Mybatis基于传统dao方式的使用（自己编写dao的实现类）	了解的内容
+5、mybatis主配置文件中的常用配置
+	properties标签
+	typeAliases标签				---解释Integer的写法
+	mappers标签的子标签：package
+
+-----------------------------------------
+OGNL表达式：
+	Object Graphic Navigation Language
+	对象	图	导航	   语言
+	
+	它是通过对象的取值方法来获取数据。在写法上把get给省略了。
+	比如：我们获取用户的名称
+		类中的写法：user.getUsername();
+		OGNL表达式写法：user.username
+	mybatis中为什么能直接写username,而不用user.呢：
+		因为在parameterType中已经提供了属性所属的类，所以此时不需要写对象名
