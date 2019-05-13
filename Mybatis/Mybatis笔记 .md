@@ -166,22 +166,69 @@ xml文件配置
 
 第二天
 1、回顾mybatis自定义和环境搭建+完善自定义Mybatis的注解开发
-2、Mybatis基于代理Dao的CRUD操作					重点内容
+2、Mybatis基于代理Dao的CRUD操作					重点内容  
+	细节：
+		对于删除方法，他是一个基本类型或者是基本类型包装类作为参数传递时，占位符可以随意写
+	
+		<!-- 删除用户 --> 
+		<delete id="deleteUser" parameterType="java.lang.Integer"> 
+			delete from user where id = #{uid} 
+		</delete>  
+		模糊查询 两种写法
+		保存操作之后，获取id值
+		
 3、CRUD中可能遇到的问题：参数的传递以及返回值的封装
-4、介绍Mybatis基于传统dao方式的使用（自己编写dao的实现类）	了解的内容
+4、介绍Mybatis基于传统dao方式的使用（自己编写dao的实现类）	了解的内容    
+
+	源码分析，能让自己理解更深刻，和自定义的mybatis逻辑基本一致
+	断点调试，跟踪源码
 5、mybatis主配置文件中的常用配置
 	properties标签
 	typeAliases标签				---解释Integer的写法
 	mappers标签的子标签：package
 
+<!-- 配置properties
+	可以在标签内部配置连接数据库的信息。也可以通过属性引用外部配置文件信息
+	resource属性： 常用的
+		用于指定配置文件的位置，是按照类路径的写法来写，并且必须存在于类路径下。
+	url属性：
+		是要求按照Url的写法来写地址
+		URL：Uniform Resource Locator 统一资源定位符。它是可以唯一标识一个资源的位置。
+		它的写法：
+			http://localhost:8080/mybatisserver/demo1Servlet
+			协议      主机     端口       URI
+
+		URI:Uniform Resource Identifier 统一资源标识符。它是在应用中可以唯一定位一个资源的。
+-->
+	
+<!--使用typeAliases配置别名，它只能配置domain中类的别名 -->
+<typeAliases>
+	<!--typeAlias用于配置别名。type属性指定的是实体类全限定类名。alias属性指定别名，当指定了别名就再区分大小写
+	<typeAlias type="com.itheima.domain.User" alias="user"></typeAlias>  -->
+
+	<!-- 用于指定要配置别名的包，当指定之后，该包下的实体类都会注册别名，并且类名就是别名，不再区分大小写-->
+	<package name="com.itheima.domain"></package>
+</typeAliases>
+
+<!-- 配置映射文件的位置 -->
+<mappers>
+	<!--<mapper resource="com/itheima/dao/IUserDao.xml"></mapper>-->
+	<!-- package标签是用于指定dao接口所在的包,当指定了之后就不需要在写mapper以及resource或者class了 -->
+	<package name="com.itheima.dao"></package>
+</mappers>
+	
+	
+	
 -----------------------------------------
-OGNL表达式：
+OGNL表达式：	
 	Object Graphic Navigation Language
 	对象	图	导航	   语言
 	
 	它是通过对象的取值方法来获取数据。在写法上把get给省略了。
 	比如：我们获取用户的名称
 		类中的写法：user.getUsername();
-		OGNL表达式写法：user.username
+		OGNL表达式写法：user.username     类的成员变量，和类的属性  有可能会不一样
 	mybatis中为什么能直接写username,而不用user.呢：
 		因为在parameterType中已经提供了属性所属的类，所以此时不需要写对象名
+		
+		实际开发中，又多个对象来组合成查询条件，以此来封装（pojo 实体类 == javabean）
