@@ -19,3 +19,8 @@ undo  log  实现了aid特性   （acid）
 
 
 空间函数 
+
+
+
+![1558679379516](C:\Users\ADMINI~1\AppData\Local\Temp\1558679379516.png)
+
