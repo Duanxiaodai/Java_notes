@@ -1,4 +1,4 @@
-## 1.缓存  
+## 1.缓存  Redis
 
 
 
@@ -43,8 +43,6 @@
 #### 1.1示例与说明
 
 ```java
-package com.atguigu.cache.service;
-
 import com.atguigu.cache.bean.Employee;
 import com.atguigu.cache.mapper.EmployeeMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -198,16 +196,70 @@ public class EmployeeService {
 
         return employeeMapper.getEmpByLastName(lastName);
     }
-
-
-
-
 }
 ```
 
 
 
 
+
+切换cachemanager 
+
+```java
+import com.atguigu.cache.bean.Department;
+import com.atguigu.cache.mapper.DepartmentMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.stereotype.Service;
+
+
+@Service
+public class DeptService {
+
+    @Autowired
+    DepartmentMapper departmentMapper;
+
+//    @Qualifier("deptCacheManager")
+//    @Autowired
+//    RedisCacheManager deptCacheManager;
+
+
+    /**
+     *  缓存的数据能存入redis；
+     *  第二次从缓存中查询就不能反序列化回来；
+     *  存的是dept的json数据;CacheManager默认使用RedisTemplate<Object, Employee>操作Redis
+     *
+     *
+     * @param id
+     * @return
+     */
+    @Cacheable(cacheNames = "dept",cacheManager = "deptCacheManager")
+    public Department getDeptById(Integer id){
+        System.out.println("查询部门"+id);
+        Department department = departmentMapper.getDeptById(id);
+        System.out.println(department+"....");
+        return department;
+    }
+
+    // 使用缓存管理器得到缓存，进行api调用
+//    public Department getDeptById(Integer id){
+//        System.out.println("查询部门"+id);
+//        Department department = departmentMapper.getDeptById(id);
+//
+//        //获取某个缓存
+//        Cache dept = deptCacheManager.getCache("dept");
+//        dept.put("dept:1",department);
+//
+//        return department;
+//    }
+
+
+}
+```
 
 
 
@@ -261,3 +313,399 @@ public class EmployeeService {
    }
 ```
 
+
+
+Redis的自定义配置，RedisTemplate，RedisCacheManager
+
+注意：如果是缺省的序列化，需要实体类实现序列化接口Serializable
+
+```java
+import com.atguigu.cache.bean.Department;
+import com.atguigu.cache.bean.Employee;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+
+import java.net.UnknownHostException;
+
+@Configuration
+public class MyRedisConfig {
+    @Bean
+    public RedisTemplate<Object, Employee> empRedisTemplate(
+            RedisConnectionFactory redisConnectionFactory)
+            throws UnknownHostException {
+        RedisTemplate<Object, Employee> template = new RedisTemplate<Object, Employee>();
+        template.setConnectionFactory(redisConnectionFactory);
+        Jackson2JsonRedisSerializer<Employee> ser = new Jackson2JsonRedisSerializer<Employee>(Employee.class);
+        template.setDefaultSerializer(ser);
+        return template;
+    }
+    @Bean
+    public RedisTemplate<Object, Department> deptRedisTemplate(
+            RedisConnectionFactory redisConnectionFactory)
+            throws UnknownHostException {
+        RedisTemplate<Object, Department> template = new RedisTemplate<Object, Department>();
+        template.setConnectionFactory(redisConnectionFactory);
+        Jackson2JsonRedisSerializer<Department> ser = new Jackson2JsonRedisSerializer<Department>(Department.class);
+        template.setDefaultSerializer(ser);
+        return template;
+    }
+    //CacheManagerCustomizers可以来定制缓存的一些规则
+    @Primary  //将某个缓存管理器作为默认的
+    @Bean
+    public RedisCacheManager employeeCacheManager(RedisTemplate<Object, Employee> empRedisTemplate){
+        RedisCacheManager cacheManager = new RedisCacheManager(empRedisTemplate);
+        //key多了一个前缀
+        //使用前缀，默认会将CacheName作为key的前缀
+        cacheManager.setUsePrefix(true);
+        return cacheManager;
+    }
+    @Bean
+    public RedisCacheManager deptCacheManager(RedisTemplate<Object, Department> deptRedisTemplate){
+        RedisCacheManager cacheManager = new RedisCacheManager(deptRedisTemplate);
+        //key多了一个前缀
+        //使用前缀，默认会将CacheName作为key的前缀
+        cacheManager.setUsePrefix(true);
+        return cacheManager;
+    }
+}
+```
+
+#### 1.3CURD标准的项目结构
+
+![1560223661954](images\1560223661954.png)
+
+## 2.消息 RabbitMQ
+
+```java
+/**
+ * 自动配置
+ *  1、RabbitAutoConfiguration
+ *  2、有自动配置了连接工厂ConnectionFactory；
+ *  3、RabbitProperties 封装了 RabbitMQ的配置
+ *  4、 RabbitTemplate ：给RabbitMQ发送和接受消息；
+ *  5、 AmqpAdmin ： RabbitMQ系统管理功能组件;
+ *     AmqpAdmin：创建和删除 Queue，Exchange，Binding
+ *  6、@EnableRabbit +  @RabbitListener 监听消息队列的内容
+ *
+ */
+```
+
+```properties
+spring.rabbitmq.host=10.112.163.217
+spring.rabbitmq.username=guest
+spring.rabbitmq.password=guest
+```
+
+
+
+测试
+
+```java
+
+import com.atguigu.amqp.bean.Book;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.amqp.core.AmqpAdmin;
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.DirectExchange;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
+@RunWith(SpringRunner.class)
+@SpringBootTest
+public class Springboot02AmqpApplicationTests {
+
+   @Autowired
+   RabbitTemplate rabbitTemplate;
+
+   @Autowired
+   AmqpAdmin amqpAdmin;
+
+   @Test
+   public void createExchange(){
+
+//    amqpAdmin.declareExchange(new DirectExchange("amqpadmin.exchange"));
+//    System.out.println("创建完成");
+
+//    amqpAdmin.declareQueue(new Queue("amqpadmin.queue",true));
+      //创建绑定规则
+
+//    amqpAdmin.declareBinding(new Binding("amqpadmin.queue", Binding.DestinationType.QUEUE,"amqpadmin.exchange","amqp.haha",null));
+
+      //amqpAdmin.de
+   }
+
+   /**
+    * 1、单播（点对点）
+    */
+   @Test
+   public void contextLoads() {
+      //Message需要自己构造一个;定义消息体内容和消息头
+      //rabbitTemplate.send(exchage,routeKey,message);
+
+      //object默认当成消息体，只需要传入要发送的对象，自动序列化发送给rabbitmq；
+      //rabbitTemplate.convertAndSend(exchage,routeKey,object);
+      Map<String,Object> map = new HashMap<>();
+      map.put("msg","这是第一个消息");
+      map.put("data", Arrays.asList("helloworld",123,true));
+      //对象被默认序列化以后发送出去
+      rabbitTemplate.convertAndSend("exchange.direct","atguigu.news",new Book("西游记","吴承恩"));
+
+   }
+
+   //接受数据,如何将数据自动的转为json发送出去
+   @Test
+   public void receive(){
+      Object o = rabbitTemplate.receiveAndConvert("atguigu.news");
+      System.out.println(o.getClass());
+      System.out.println(o);
+   }
+
+   /**
+    * 广播
+    */
+   @Test
+   public void sendMsg(){
+      rabbitTemplate.convertAndSend("exchange.fanout","",new Book("红楼梦","曹雪芹"));
+   }
+
+}
+```
+
+## 3.检索 ElasticSearch 
+
+```java
+/**
+ * SpringBoot默认支持两种技术来和ES交互；
+ * 1、Jest（默认不生效）
+ *     需要导入jest的工具包（io.searchbox.client.JestClient）
+ * 2、SpringData ElasticSearch【ES版本有可能不合适】
+ *        版本适配说明：https://github.com/spring-projects/spring-data-elasticsearch
+ *    如果版本不适配：2.4.6
+ *       1）、升级SpringBoot版本
+ *       2）、安装对应版本的ES
+ *
+ *        1）、Client 节点信息clusterNodes；clusterName
+ *        2）、ElasticsearchTemplate 操作es
+ *    3）、编写一个 ElasticsearchRepository 的子接口来操作ES；
+ * 两种用法：https://github.com/spring-projects/spring-data-elasticsearch
+ * 1）、编写一个 ElasticsearchRepository
+ */
+```
+
+```properties
+spring.elasticsearch.jest.uris=http://118.24.44.169:9200
+
+spring.data.elasticsearch.cluster-name=elasticsearch
+spring.data.elasticsearch.cluster-nodes=118.24.44.169:9301
+```
+
+
+
+类似与jpa的方式进行crud操作
+
+```java
+public interface BookRepository extends ElasticsearchRepository<Book,Integer> {
+
+    //参照官方文档   -->有方法命名与 对应的查询条件的关系
+    // https://docs.spring.io/spring-data/elasticsearch/docs/3.0.6.RELEASE/reference/html/
+   public List<Book> findByBookNameLike(String bookName);
+
+}
+```
+
+## 6.分布式
+
+### 6.1dubbo zookeeper
+
+步骤1  服务提供者
+
+```java
+/**
+ * 1、将服务提供者注册到注册中心
+ *         1、引入dubbo和zkclient相关依赖
+ *         2、配置dubbo的扫描包和注册中心地址
+ *         3、使用@Service发布服务
+ */
+```
+
+```properties
+dubbo.application.name=provider-ticket
+
+dubbo.registry.address=zookeeper://10.112.163.217:2181
+
+dubbo.scan.base-packages=com.atguigu.ticket.service
+```
+
+```java
+provider-ticket 项目
+package com.atguigu.ticket.service;
+import com.alibaba.dubbo.config.annotation.Service; //这里是dubbo的注解 发布服务
+import org.springframework.stereotype.Component;
+@Component
+@Service //将服务发布出去
+public class TicketServiceImpl implements TicketService {
+    @Override
+    public String getTicket() {
+        return "《厉害了，我的国》";
+    }
+}
+```
+
+步骤2 服务调用者
+
+```java
+/**
+ * 1、引入依赖‘
+ * 2、配置dubbo的注册中心地址
+ * 3、引用服务
+ */
+```
+
+```properties
+dubbo.application.name=consumer-user
+
+dubbo.registry.address=zookeeper://10.112.163.217:2181
+```
+
+```java
+import com.alibaba.dubbo.config.annotation.Reference;
+import com.atguigu.ticket.service.TicketService;  //需要复制一份全类名完全相同的接口
+import org.springframework.stereotype.Service;  //这里是spring 的注解
+@Service
+public class UserService{
+    @Reference//远程引用服务   
+    TicketService ticketService;//按照全类名进行匹配服务
+    public void hello(){
+        String ticket = ticketService.getTicket();
+        System.out.println("买到票了："+ticket);
+    }
+}
+```
+
+### 6.2分布式Spring cloud
+
+**springcloud 在整合微服务的时候是通过轻量级 http 进行通信的**
+
+服务1 Eureka服务中心
+
+```java
+/**
+ * 注册中心
+ * 1、配置Eureka信息
+ * 2、@EnableEurekaServer
+ */
+@EnableEurekaServer
+@SpringBootApplication
+public class EurekaServerApplication {
+
+   public static void main(String[] args) {
+      SpringApplication.run(EurekaServerApplication.class, args);
+   }
+}
+```
+
+```properties
+server:
+  port: 8761
+eureka:
+  instance:
+    hostname: eureka-server  # eureka实例的主机名
+  client:
+    register-with-eureka: false #不把自己注册到eureka上
+    fetch-registry: false #不从eureka上来获取服务的注册信息
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+```
+
+服务提供者配置
+
+```properties
+server:
+  port: 8001
+spring:
+  application:
+    name: provider-ticket
+
+
+eureka:
+  instance:
+    prefer-ip-address: true # 注册服务的时候使用服务的ip地址
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+```
+
+服务调用者配置
+
+```properties
+spring:
+  application:
+    name: consumer-user
+server:
+  port: 8200
+
+eureka:
+  instance:
+    prefer-ip-address: true # 注册服务的时候使用服务的ip地址
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+```
+
+```java
+@EnableDiscoveryClient //开启发现服务功能
+@SpringBootApplication
+public class ConsumerUserApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ConsumerUserApplication.class, args);
+	}
+
+	@LoadBalanced //使用负载均衡机制
+	@Bean
+	public RestTemplate restTemplate(){
+		return new RestTemplate();
+	}
+}
+```
+
+```java
+@RestController
+public class UserController {
+
+    @Autowired
+    RestTemplate restTemplate;//http远程调用工具
+
+    @GetMapping("/buy")
+    public String buyTicket(String name){
+        //远程调用
+        String s = restTemplate.getForObject("http://PROVIDER-TICKET/ticket", String.class);
+        return name+"购买了"+s;
+    }
+}
+```
+
+## 7.SpringBoot开发热部署
+
+ctrl+f9 重新构建
+
+```xml
+<dependency>
+   <groupId>org.springframework.boot</groupId>
+   <artifactId>spring-boot-devtools</artifactId>
+   <optional>true</optional>
+</dependency>
+```
