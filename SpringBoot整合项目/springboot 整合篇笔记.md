@@ -526,9 +526,221 @@ public interface BookRepository extends ElasticsearchRepository<Book,Integer> {
 }
 ```
 
+
+
+## 4.任务
+
+#### 4.1异步任务
+
+在Java应用中，绝大多数情况下都是通过同步的方式来实现交互处理的；但是在处理与第三方系统交互的时候，容易造成响应迟缓的情况，之前大部分都是使用多线程来完成此类任务，其实，在Spring 3.x之后，就已经内置了@Async来完美解决这个问题。
+
+两个注解：
+
+**@EnableAysnc、@Aysnc**
+
+```java
+@Async//  开启一个线程池去调用该方法，变为异步
+public void hello(){
+    try {
+        Thread.sleep(3000);
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+    System.out.println("处理数据中...");
+}
+
+@EnableAsync  //开启异步注解功能
+@EnableScheduling //开启基于注解的定时任务
+@SpringBootApplication
+public class Springboot04TaskApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(Springboot04TaskApplication.class, args);
+	}
+}
+```
+
+
+
+#### 4.2定时任务 
+
+
+
+项目开发中经常需要执行一些定时任务，比如需要在每天凌晨时候，分析一次前一天的日志信息。Spring为我们提供了异步执行任务调度的方式，提供TaskExecutor 、TaskScheduler 接口。
+
+**两个注解：@EnableScheduling、@Scheduled**
+
+**cron表达式：**
+
+```java
+ /**
+  * second(秒), minute（分）, hour（时）, day of month（日）, month（月）, day of week（周几）.
+  * 0 * * * * MON-FRI
+  *  【0 0/5 14,18 * * ?】 每天14点整，和18点整，每隔5分钟执行一次
+  *  【0 15 10 ? * 1-6】 每个月的周一至周六10:15分执行一次
+  *  【0 0 2 ? * 6L】每个月的最后一个周六凌晨2点执行一次
+  *  【0 0 2 LW * ?】每个月的最后一个工作日凌晨2点执行一次
+  *  【0 0 2-4 ? * 1#1】每个月的第一个周一凌晨2点到4点期间，每个整点都执行一次；
+  */
+// @Scheduled(cron = "0 * * * * MON-SAT")
+ //@Scheduled(cron = "0,1,2,3,4 * * * * MON-SAT")
+// @Scheduled(cron = "0-4 * * * * MON-SAT")
+ @Scheduled(cron = "0/4 * * * * MON-SAT")  //每4秒执行一次
+ public void hello(){
+     System.out.println("hello ... ");
+ }
+```
+
+![1560303556379](images\1560303556379.png)
+
+
+
+#### 4.3 邮件任务
+
+•邮件发送需要引入spring-boot-starter-mail
+
+•Spring Boot 自动配置MailSenderAutoConfiguration
+
+•定义MailProperties内容，配置在application.yml中
+
+•自动装配JavaMailSender
+
+•测试邮件发送
+
+```properties
+spring.mail.username=805236403@qq.com
+spring.mail.password=gtstkoszjelabijb
+spring.mail.host=smtp.qq.com
+spring.mail.properties.mail.smtp.ssl.enable=true
+```
+
+```java
+@Test
+public void contextLoads() {
+   SimpleMailMessage message = new SimpleMailMessage();
+   //邮件设置
+   message.setSubject("通知-今晚开会");
+   message.setText("今晚7:30开会");
+
+   message.setTo("17512080612@163.com");
+   message.setFrom("534096094@qq.com");
+
+   mailSender.send(message);
+}
+```
+
+## 5.安全
+
+Spring Security是针对Spring项目的安全框架，也是Spring Boot底层安全模块默认的技术选型。他可以实现强大的web安全控制。对于安全控制，我们仅需引入spring-boot-starter-security模块，进行少量的配置，即可实现强大的安全管理。
+ 几个类：
+
+WebSecurityConfigurerAdapter：自定义Security策略
+
+AuthenticationManagerBuilder：自定义认证策略
+
+@EnableWebSecurity：开启WebSecurity模式
+
+
+
+**•应用程序的两个主要区域是“认证”和“授权”**（或者访问控制）。这两个主要区域是Spring Security 的两个目标。
+
+•“认证”（Authentication），是建立一个他声明的主体的过程（一个“主体”一般是指用户，设备或一些可以在你的应用程序中执行动作的其他系统）。
+
+•“授权”（Authorization）指确定一个主体是否允许在你的应用程序执行一个动作的过程。为了抵达需要授权的店，主体的身份已经有认证过程建立。
+
+•这个概念是通用的而不只在Spring Security中。
+
+```java
+/**
+ * 1、引入SpringSecurity；
+ * 2、编写SpringSecurity的配置类；
+ *        @EnableWebSecurity   extends WebSecurityConfigurerAdapter
+ * 3、控制请求的访问权限：
+ *        configure(HttpSecurity http) {
+ *           http.authorizeRequests().antMatchers("/").permitAll()
+ *              .antMatchers("/level1/**").hasRole("VIP1")
+ *        }
+ * 4、定义认证规则：
+ *        configure(AuthenticationManagerBuilder auth){
+ *           auth.inMemoryAuthentication()
+ *              .withUser("zhangsan").password("123456").roles("VIP1","VIP2")
+ *        }
+ * 5、开启自动配置的登陆功能：
+ *        configure(HttpSecurity http){
+ *           http.formLogin();
+ *        }
+ * 6、注销：http.logout();
+ * 7、记住我：Remeberme()；
+ */
+```
+
+```java
+@EnableWebSecurity
+{
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.TYPE})
+    @Documented
+    @Import({WebSecurityConfiguration.class, SpringWebMvcImportSelector.class})
+    @EnableGlobalAuthentication
+    @Configuration
+    public @interface EnableWebSecurity {
+        boolean debug() default false;
+    }
+}
+@EnableWebSecurity
+public class MySecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        //super.configure(http);
+        //定制请求的授权规则
+        http.authorizeRequests().antMatchers("/").permitAll()
+                .antMatchers("/level1/**").hasRole("VIP1")
+                .antMatchers("/level2/**").hasRole("VIP2")
+                .antMatchers("/level3/**").hasRole("VIP3");
+
+        //开启自动配置的登陆功能，效果，如果没有登陆，没有权限就会来到登陆页面
+        http.formLogin().usernameParameter("user").passwordParameter("pwd")
+                .loginPage("/userlogin");
+        //1、/login来到登陆页
+        //2、重定向到/login?error表示登陆失败
+        //3、更多详细规定
+        //4、默认post形式的 /login代表处理登陆
+        //5、一但定制loginPage；那么 loginPage的post请求就是登陆
+
+
+        //开启自动配置的注销功能。
+        http.logout().logoutSuccessUrl("/");//注销成功以后来到首页
+        //1、访问 /logout 表示用户注销，清空session
+        //2、注销成功会返回 /login?logout 页面；
+
+        //开启记住我功能
+        http.rememberMe().rememberMeParameter("remeber");
+        //登陆成功以后，将cookie发给浏览器保存，以后访问页面带上这个cookie，只要通过检查就可以免登录
+        //点击注销会删除cookie
+
+    }
+
+    //定义认证规则
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        //super.configure(auth);
+        auth.inMemoryAuthentication()
+                .withUser("zhangsan").password("123456").roles("VIP1","VIP2")
+                .and()
+                .withUser("lisi").password("123456").roles("VIP2","VIP3")
+                .and()
+                .withUser("wangwu").password("123456").roles("VIP1","VIP3");
+
+    }
+}
+```
+
 ## 6.分布式
 
 ### 6.1dubbo zookeeper
+
+RPC 调用
 
 步骤1  服务提供者
 
@@ -595,7 +807,7 @@ public class UserService{
 }
 ```
 
-### 6.2分布式Spring cloud
+### 6.2Spring cloud
 
 **springcloud 在整合微服务的时候是通过轻量级 http 进行通信的**
 
@@ -656,7 +868,6 @@ spring:
     name: consumer-user
 server:
   port: 8200
-
 eureka:
   instance:
     prefer-ip-address: true # 注册服务的时候使用服务的ip地址
@@ -708,4 +919,85 @@ ctrl+f9 重新构建
    <artifactId>spring-boot-devtools</artifactId>
    <optional>true</optional>
 </dependency>
+```
+## 8.监管
+
+通过引入spring-boot-starter-actuator，可以使用Spring Boot为我们提供的准生产环境下的应用监控和管理功能。我们可以通过HTTP，JMX，SSH协议来进行操作，自动得到审计、健康及指标信息等
+
+•步骤：
+
+–引入spring-boot-starter-actuator
+
+–通过http方式访问监控端点
+
+–可进行shutdown（POST 提交，此端点默认关闭）
+
+
+
+•监控和管理端点  
+
+| 端点名      | 描述                        |
+| ----------- | --------------------------- |
+| autoconfig  | 所有自动配置信息            |
+| auditevents | 审计事件                    |
+| beans       | 所有Bean的信息              |
+| configprops | 所有配置属性                |
+| dump        | 线程状态信息                |
+| env         | 当前环境信息                |
+| health      | 应用健康状况                |
+| info        | 当前应用信息                |
+| metrics     | 应用的各项指标              |
+| mappings    | 应用@RequestMapping映射路径 |
+| shutdown    | 关闭当前应用（默认关闭）    |
+| trace       | 追踪信息（最新的http请求）  |
+
+**定制端点信息**
+
+–定制端点一般通过endpoints+端点名+属性名来设置。
+
+–修改端点id（endpoints.beans.id=mybeans）
+
+–开启远程应用关闭功能（endpoints.shutdown.enabled=true）
+
+–关闭端点（endpoints.beans.enabled=false）
+
+–开启所需端点
+
+•endpoints.enabled=false
+
+•endpoints.beans.enabled=true
+
+–定制端点访问根路径
+
+•management.context-path=/manage
+
+–关闭http端点
+
+•management.port=-1
+
+
+
+**给自己的服务定义健康指示器**
+
+```java
+/**
+ * 自定义健康状态指示器
+ * 1、编写一个指示器 实现 HealthIndicator 接口
+ * 2、指示器的名字 xxxxHealthIndicator
+ * 3、加入容器中
+ */
+```
+
+```java
+@Component
+public class MyAppHealthIndicator implements HealthIndicator {
+
+    @Override
+    public Health health() {
+
+        //自定义的检查方法
+        //Health.up().build()代表健康
+        return Health.down().withDetail("msg","服务异常").build();
+    }
+}
 ```
